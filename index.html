@@ -1,0 +1,892 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Anteckning</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Montserrat:wght@700;800&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        heading: ['Montserrat', 'sans-serif'],
+                    },
+                    colors: {
+                        darkBg: '#0b0f19',
+                        darkCard: '#1e293b',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #0b0f19;
+            color: #f1f5f9;
+        }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 4px;
+        }
+
+        .gradient-text {
+            background: linear-gradient(135deg, #ec4899 0%, #a855f7 50%, #06b6d4 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .completed-text {
+            text-decoration: line-through;
+            color: #64748b;
+        }
+
+        .block-item.dragging {
+            opacity: 0.4;
+            transform: scale(0.98);
+            border: 2px dashed #a855f7;
+        }
+
+        .glow-purple {
+            box-shadow: 0 0 15px -3px rgba(168, 85, 247, 0.3);
+        }
+    </style>
+</head>
+<body class="h-screen flex flex-col md:flex-row overflow-hidden font-sans">
+
+    <!-- MOBIL HEADER -->
+    <div class="md:hidden flex items-center justify-between p-4 bg-slate-900 border-b border-slate-800">
+        <div class="flex items-center space-x-2">
+            <i class="fa-solid fa-note-sticky text-2xl text-pink-500"></i>
+            <span class="font-heading font-bold text-xl gradient-text">Anteckningar</span>
+        </div>
+        <button id="mobileMenuBtn" class="p-2 text-slate-300 hover:text-white focus:outline-none">
+            <i class="fa-solid fa-bars text-xl"></i>
+        </button>
+    </div>
+
+    <!-- SIDOBAR -->
+    <aside id="sidebar" class="fixed inset-y-0 left-0 transform -translate-x-full md:relative md:translate-x-0 transition-transform duration-300 ease-in-out z-30 w-72 bg-slate-900/95 backdrop-blur-md border-r border-slate-800 flex flex-col h-full">
+        <!-- Logo Header -->
+        <div class="hidden md:flex items-center justify-between p-5 border-b border-slate-800">
+            <div class="flex items-center space-x-3">
+                <div class="p-2.5 bg-gradient-to-tr from-pink-500 to-purple-600 rounded-xl shadow-lg">
+                    <i class="fa-solid fa-note-sticky text-xl text-white"></i>
+                </div>
+                <div>
+                    <h1 class="font-heading font-extrabold text-lg gradient-text">Anteckningar</h1>
+                    <p class="text-xs text-slate-400">Mörkt & Färgglatt Tema</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Knapp: Ny Anteckning -->
+        <div class="p-4 space-y-2">
+            <button id="newNoteBtn" class="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-pink-500 via-purple-600 to-cyan-500 text-white font-semibold flex items-center justify-center space-x-2 shadow-md hover:opacity-95 transition-all">
+                <i class="fa-solid fa-plus"></i>
+                <span>Ny anteckning</span>
+            </button>
+            <button id="backupModalBtn" class="w-full py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 font-medium text-xs flex items-center justify-center space-x-2 transition-all">
+                <i class="fa-solid fa-database text-purple-400"></i>
+                <span>Säkerhetskopia & Återställ</span>
+            </button>
+        </div>
+
+        <!-- Sökfält -->
+        <div class="px-4 mb-3">
+            <div class="relative">
+                <i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-slate-500 text-sm"></i>
+                <input type="text" id="searchInput" placeholder="Sök anteckningar..." class="w-full bg-slate-800 border border-slate-700 text-sm text-slate-200 placeholder-slate-500 rounded-lg pl-9 pr-3 py-2 focus:outline-none focus:border-purple-500">
+            </div>
+        </div>
+
+        <!-- Anteckningslista -->
+        <div class="flex-1 overflow-y-auto px-3 space-y-2 py-2" id="notesList"></div>
+
+        <!-- Footer -->
+        <div class="p-4 border-t border-slate-800 text-xs text-slate-500 flex justify-between items-center">
+            <span id="noteCount">0 anteckningar</span>
+            <span class="text-purple-400"><i class="fa-solid fa-cloud-arrow-up mr-1"></i>Sparad</span>
+        </div>
+    </aside>
+
+    <!-- MOBIL OVERLAY BACKDROP -->
+    <div id="sidebarOverlay" class="fixed inset-0 bg-black/60 z-20 hidden md:hidden"></div>
+
+    <!-- HUVUDINNEHÅLL (REDIGERARE) -->
+    <main class="flex-1 flex flex-col h-full bg-slate-950 overflow-hidden relative">
+        
+        <!-- Tom statsskärm -->
+        <div id="emptyState" class="hidden flex-1 flex flex-col items-center justify-center p-6 text-center">
+            <div class="p-6 rounded-full bg-slate-900 border border-slate-800 mb-4 text-purple-400">
+                <i class="fa-solid fa-pen-to-square text-5xl"></i>
+            </div>
+            <h2 class="text-2xl font-bold text-slate-200 mb-2">Ingen anteckning vald</h2>
+            <button id="emptyNewBtn" class="py-2.5 px-5 bg-purple-600 hover:bg-purple-500 text-white font-medium rounded-xl transition-all shadow-lg glow-purple flex items-center space-x-2">
+                <i class="fa-solid fa-plus"></i>
+                <span>Skapa anteckning</span>
+            </button>
+        </div>
+
+        <!-- Redigeringsyta -->
+        <div id="editorContainer" class="flex-1 flex flex-col h-full overflow-hidden">
+            
+            <!-- Header för anteckning -->
+            <header class="bg-slate-900/80 border-b border-slate-800 p-4 flex flex-wrap items-center justify-between gap-3 backdrop-blur-md">
+                <div class="flex items-center space-x-3 flex-1 min-w-[200px]">
+                    <span id="categoryBadge" class="px-2.5 py-1 rounded-full text-xs font-semibold bg-purple-900/60 text-purple-300 border border-purple-700/50">
+                        Anteckning
+                    </span>
+                    <input type="text" id="noteTitleInput" placeholder="Titel..." class="bg-transparent font-heading font-bold text-xl md:text-2xl text-white focus:outline-none w-full border-b border-transparent focus:border-purple-500">
+                </div>
+
+                <!-- Kontroller i toppmeny -->
+                <div class="flex flex-wrap items-center gap-2">
+                    <!-- Redigeringsläge Toggle -->
+                    <button id="toggleEditModeBtn" class="px-3 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 text-white font-medium text-xs flex items-center space-x-1.5 transition-all shadow">
+                        <i id="editModeIcon" class="fa-solid fa-pen"></i>
+                        <span id="editModeText">Redigeringsläge</span>
+                    </button>
+
+                    <!-- Dela-knapp -->
+                    <button id="shareBtn" class="px-3 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-medium text-xs flex items-center space-x-1.5 transition-all shadow">
+                        <i class="fa-solid fa-share-nodes"></i>
+                        <span>Dela</span>
+                    </button>
+
+                    <!-- Exportera Backup knapp -->
+                    <button id="topExportBtn" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-purple-300 border border-purple-500/30 font-medium text-xs flex items-center space-x-1.5 transition-all shadow" title="Exportera säkerhetskopia (JSON)">
+                        <i class="fa-solid fa-download"></i>
+                        <span>Exportera</span>
+                    </button>
+
+                    <!-- Importera Backup knapp -->
+                    <label class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-cyan-500/30 font-medium text-xs flex items-center space-x-1.5 transition-all shadow cursor-pointer" title="Importera säkerhetskopia (JSON)">
+                        <i class="fa-solid fa-upload"></i>
+                        <span>Importera</span>
+                        <input type="file" id="topImportInput" accept=".json" class="hidden">
+                    </label>
+
+                    <!-- Ta bort anteckning -->
+                    <button id="deleteNoteBtn" class="p-2 text-slate-400 hover:text-rose-400 hover:bg-slate-800 rounded-lg transition-colors ml-1" title="Ta bort anteckning">
+                        <i class="fa-solid fa-trash-can text-lg"></i>
+                    </button>
+                </div>
+            </header>
+
+            <!-- Statusbar för läge -->
+            <div id="modeBanner" class="bg-slate-900/40 border-b border-slate-800/80 px-4 py-2 flex items-center justify-between text-xs text-slate-400">
+                <span id="modeBannerText"><i class="fa-solid fa-info-circle mr-1 text-purple-400"></i> Redigeringsläge aktivt – alla rader visas.</span>
+                <button id="addBlockBtn" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-purple-300 border border-purple-700/50 flex items-center space-x-1 transition-all">
+                    <i class="fa-solid fa-plus"></i>
+                    <span>Lägg till rad</span>
+                </button>
+            </div>
+
+            <!-- Innehållsområde med modulära block -->
+            <div class="flex-1 overflow-y-auto p-4 md:p-8 space-y-3" id="blocksContainer">
+                <!-- Dynamiska block hamnar här -->
+            </div>
+
+        </div>
+    </main>
+
+    <!-- MODAL: Säkerhetskopia & Återställning -->
+    <div id="backupModal" class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-slate-900 border border-slate-700 w-full max-w-md rounded-2xl p-6 shadow-2xl">
+            <h3 class="text-xl font-bold text-white mb-2 flex items-center space-x-2">
+                <i class="fa-solid fa-database text-purple-400"></i>
+                <span>Säkerhetskopiering</span>
+            </h3>
+            <p class="text-xs text-slate-400 mb-6">Exportera dina anteckningar till en JSON-fil eller återställ från en sparad fil.</p>
+
+            <div class="space-y-4">
+                <div class="p-4 rounded-xl bg-slate-800/60 border border-slate-700 flex justify-between items-center">
+                    <div>
+                        <div class="text-sm font-semibold text-slate-200">Exportera anteckningar</div>
+                        <div class="text-xs text-slate-400">Spara alla anteckningar som en fil.</div>
+                    </div>
+                    <button id="exportBackupBtn" class="px-3.5 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition-all">
+                        <i class="fa-solid fa-download"></i>
+                        <span>Exportera</span>
+                    </button>
+                </div>
+
+                <div class="p-4 rounded-xl bg-slate-800/60 border border-slate-700 flex justify-between items-center">
+                    <div>
+                        <div class="text-sm font-semibold text-slate-200">Importera anteckningar</div>
+                        <div class="text-xs text-slate-400">Läs in tidigare sparad JSON-fil.</div>
+                    </div>
+                    <label class="px-3.5 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg text-xs font-semibold flex items-center space-x-1.5 cursor-pointer transition-all">
+                        <i class="fa-solid fa-upload"></i>
+                        <span>Importera</span>
+                        <input type="file" id="importBackupInput" accept=".json" class="hidden">
+                    </label>
+                </div>
+            </div>
+
+            <div class="flex justify-end mt-6">
+                <button id="closeBackupModal" class="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm">Stäng</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Länkhantering för block -->
+    <div id="linkModal" class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-slate-900 border border-slate-700 w-full max-w-md rounded-2xl p-6 shadow-2xl">
+            <h3 class="text-xl font-bold text-white mb-4 flex items-center space-x-2">
+                <i class="fa-solid fa-link text-cyan-400"></i>
+                <span>Koppla länk till raden</span>
+            </h3>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-400 mb-1">Webbadress / URL</label>
+                    <input type="url" id="blockUrlInput" placeholder="https://example.com" class="w-full bg-slate-800 border border-slate-700 text-slate-200 rounded-lg p-2.5 text-sm focus:outline-none focus:border-cyan-500">
+                </div>
+            </div>
+            <div class="flex justify-between items-center mt-6">
+                <button id="removeLinkBtn" class="px-3 py-2 rounded-lg bg-rose-900/50 hover:bg-rose-800 text-rose-200 text-sm hidden">Ta bort länk</button>
+                <div class="flex space-x-2 ml-auto">
+                    <button id="closeLinkModal" class="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm">Avbryt</button>
+                    <button id="saveLinkBtn" class="px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-sm font-semibold">Spara länk</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Dela anteckning -->
+    <div id="shareModal" class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-slate-900 border border-slate-700 w-full max-w-md rounded-2xl p-6 shadow-2xl">
+            <h3 class="text-xl font-bold text-white mb-2 flex items-center space-x-2">
+                <i class="fa-solid fa-share-nodes text-cyan-400"></i>
+                <span>Dela anteckning</span>
+            </h3>
+            <p class="text-xs text-slate-400 mb-4">Välj behörighet för att skapa en delningslänk.</p>
+
+            <div class="space-y-3 mb-5">
+                <label class="flex items-center space-x-3 p-3 rounded-xl bg-slate-800 border border-slate-700 cursor-pointer hover:border-purple-500 transition-all">
+                    <input type="radio" name="sharePermission" value="read" checked class="accent-purple-500">
+                    <div>
+                        <div class="text-sm font-semibold text-slate-200">Endast visa (Läsbehörighet)</div>
+                        <div class="text-xs text-slate-400">Mottagaren kan bara läsa anteckningen (avaktiverade rader döljs).</div>
+                    </div>
+                </label>
+                <label class="flex items-center space-x-3 p-3 rounded-xl bg-slate-800 border border-slate-700 cursor-pointer hover:border-purple-500 transition-all">
+                    <input type="radio" name="sharePermission" value="edit" class="accent-purple-500">
+                    <div>
+                        <div class="text-sm font-semibold text-slate-200">Kan redigera</div>
+                        <div class="text-xs text-slate-400">Mottagaren kan ändra och lägga till innehåll.</div>
+                    </div>
+                </label>
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-xs font-semibold text-slate-400 mb-1">Delningslänk</label>
+                <div class="flex items-center space-x-2">
+                    <input type="text" id="shareUrlInput" readonly class="flex-1 bg-slate-800 border border-slate-700 text-slate-300 rounded-lg p-2.5 text-xs focus:outline-none">
+                    <button id="copyShareUrlBtn" class="px-3 py-2.5 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-xs font-semibold flex items-center space-x-1">
+                        <i class="fa-solid fa-copy"></i>
+                        <span>Kopiera</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="flex justify-end mt-6">
+                <button id="closeShareModal" class="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm">Stäng</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT LOGIK -->
+    <script>
+        // APP TILLSTÅND
+        let notes = [];
+        let currentNoteId = null;
+        let isEditMode = true; // Globalt redigeringsläge
+        let activeBlockForLink = null;
+        let draggedBlockIndex = null;
+
+        // DOM Element
+        const notesList = document.getElementById('notesList');
+        const blocksContainer = document.getElementById('blocksContainer');
+        const noteTitleInput = document.getElementById('noteTitleInput');
+        const noteCount = document.getElementById('noteCount');
+        const editorContainer = document.getElementById('editorContainer');
+        const emptyState = document.getElementById('emptyState');
+        const searchInput = document.getElementById('searchInput');
+
+        // Redigeringsläge-knapp
+        const toggleEditModeBtn = document.getElementById('toggleEditModeBtn');
+        const editModeIcon = document.getElementById('editModeIcon');
+        const editModeText = document.getElementById('editModeText');
+        const modeBannerText = document.getElementById('modeBannerText');
+        const addBlockBtn = document.getElementById('addBlockBtn');
+
+        // Modaler
+        const linkModal = document.getElementById('linkModal');
+        const blockUrlInput = document.getElementById('blockUrlInput');
+        const removeLinkBtn = document.getElementById('removeLinkBtn');
+
+        const shareModal = document.getElementById('shareModal');
+        const shareUrlInput = document.getElementById('shareUrlInput');
+
+        const backupModal = document.getElementById('backupModal');
+
+        // STARTA APPLIKATIONEN
+        window.onload = function() {
+            loadNotesFromStorage();
+            
+            // Kolla om vi har URL-parametrar för delad anteckning
+            const urlParams = new URLSearchParams(window.location.search);
+            const sharedData = urlParams.get('shared');
+            if (sharedData) {
+                try {
+                    const parsed = JSON.parse(decodeURIComponent(escape(atob(sharedData))));
+                    if (parsed && parsed.title) {
+                        notes.unshift(parsed);
+                        if (parsed.readOnly) {
+                            isEditMode = false;
+                        }
+                    }
+                } catch(e) {
+                    console.error("Fel vid inläsning av delad länk", e);
+                }
+            }
+
+            if (notes.length > 0) {
+                selectNote(notes[0].id);
+            } else {
+                showEmptyState(true);
+            }
+            renderNotesList();
+            setupEventListeners();
+            updateEditModeUI();
+        };
+
+        // LOCALSTORAGE
+        function loadNotesFromStorage() {
+            const saved = localStorage.getItem('anteckningar_pro_data');
+            if (saved) {
+                try { notes = JSON.parse(saved); } catch(e) { notes = []; }
+            }
+        }
+
+        function saveToStorage() {
+            localStorage.setItem('anteckningar_pro_data', JSON.stringify(notes));
+            renderNotesList();
+        }
+
+        // SKAPA NY ANTECKNING
+        function createNewNote() {
+            const newNote = {
+                id: 'note_' + Date.now(),
+                title: 'Ny anteckning',
+                updatedAt: new Date().toISOString(),
+                blocks: []
+            };
+
+            notes.unshift(newNote);
+            saveToStorage();
+            selectNote(newNote.id);
+        }
+
+        // VÄLJ ANTECKNING
+        function selectNote(id) {
+            currentNoteId = id;
+            const note = notes.find(n => n.id === id);
+            if (!note) {
+                showEmptyState(true);
+                return;
+            }
+
+            showEmptyState(false);
+            noteTitleInput.value = note.title;
+            renderBlocks(note.blocks);
+            renderNotesList();
+        }
+
+        function showEmptyState(isEmpty) {
+            if (isEmpty) {
+                emptyState.classList.remove('hidden');
+                editorContainer.classList.add('hidden');
+            } else {
+                emptyState.classList.add('hidden');
+                editorContainer.classList.remove('hidden');
+            }
+        }
+
+        // RENDERAR ANTECKNINGSLISTAN
+        function renderNotesList(filterText = '') {
+            notesList.innerHTML = '';
+            
+            const filtered = notes.filter(n => 
+                n.title.toLowerCase().includes(filterText.toLowerCase()) ||
+                n.blocks.some(b => (b.text && b.text.toLowerCase().includes(filterText.toLowerCase())))
+            );
+
+            noteCount.textContent = `${notes.length} ${notes.length === 1 ? 'anteckning' : 'anteckningar'}`;
+
+            filtered.forEach(note => {
+                const isActive = note.id === currentNoteId;
+                const card = document.createElement('div');
+
+                card.className = `p-3 rounded-xl cursor-pointer transition-all border ${
+                    isActive 
+                        ? 'bg-slate-800/90 border-purple-500 shadow-md glow-purple' 
+                        : 'bg-slate-800/30 hover:bg-slate-800/60 border-slate-800 hover:border-slate-700'
+                }`;
+
+                const firstBlock = note.blocks.find(b => b.text);
+                const previewText = firstBlock ? firstBlock.text : 'Tom anteckning...';
+
+                card.innerHTML = `
+                    <div class="flex items-center justify-between mb-1">
+                        <h3 class="font-semibold text-sm text-slate-100 truncate w-4/5">${escapeHtml(note.title || 'Namnlös')}</h3>
+                        <span class="w-2 h-2 rounded-full bg-purple-500"></span>
+                    </div>
+                    <p class="text-xs text-slate-400 truncate">${escapeHtml(previewText)}</p>
+                `;
+
+                card.addEventListener('click', () => {
+                    selectNote(note.id);
+                    document.getElementById('sidebar').classList.add('-translate-x-full');
+                    document.getElementById('sidebarOverlay').classList.add('hidden');
+                });
+
+                notesList.appendChild(card);
+            });
+        }
+
+        // RENDERAR ALLA UNIVERSALBLOCK
+        function renderBlocks(blocks) {
+            blocksContainer.innerHTML = '';
+
+            let visibleBlocksCount = 0;
+
+            blocks.forEach((block, index) => {
+                // I Visningsläge: Dölj helt avaktiverade (checked) block!
+                if (!isEditMode && block.checked) {
+                    return;
+                }
+
+                visibleBlocksCount++;
+                const blockEl = createUniversalBlock(block, index, blocks.length);
+                blocksContainer.appendChild(blockEl);
+            });
+
+            if (!isEditMode && visibleBlocksCount === 0) {
+                const emptyMsg = document.createElement('div');
+                emptyMsg.className = 'text-center py-12 text-slate-500 text-sm italic';
+                emptyMsg.textContent = 'Alla rader i den här anteckningen är inaktiverade eller saknar innehåll.';
+                blocksContainer.appendChild(emptyMsg);
+            }
+        }
+
+        // SKAPA ET UNIVERSELLT INBYGGT BLOCK
+        function createUniversalBlock(block, index, totalBlocks) {
+            const container = document.createElement('div');
+            container.className = `block-item group relative bg-slate-900/60 border border-slate-800 hover:border-slate-700 rounded-xl p-3 md:p-4 transition-all flex items-center space-x-3 ${block.checked ? 'opacity-70 bg-slate-900/30' : ''}`;
+            container.draggable = isEditMode;
+            container.dataset.index = index;
+
+            // Drag handtag
+            const dragHandle = document.createElement('div');
+            dragHandle.className = `flex flex-col items-center justify-center text-slate-600 hover:text-slate-300 ${isEditMode ? 'cursor-grab active:cursor-grabbing' : 'hidden'}`;
+            dragHandle.innerHTML = `<i class="fa-solid fa-grip-vertical"></i>`;
+
+            // Kryssruta för inaktivering
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.checked = !!block.checked;
+            checkbox.className = 'w-4 h-4 rounded bg-slate-800 border-slate-700 text-purple-600 focus:ring-purple-500 cursor-pointer accent-purple-500 flex-shrink-0';
+            checkbox.disabled = !isEditMode;
+
+            checkbox.addEventListener('change', (e) => {
+                block.checked = e.target.checked;
+                saveCurrentNoteData();
+                renderBlocks(getCurrentNote().blocks);
+            });
+
+            // Textinnehållsområde
+            const contentArea = document.createElement('div');
+            contentArea.className = 'flex-1 min-w-0 flex items-center space-x-2';
+
+            if (isEditMode) {
+                // Redigerbart textfält
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.value = block.text || '';
+                input.placeholder = 'Skriv något här...';
+                input.className = `w-full bg-transparent text-slate-200 text-sm focus:outline-none border-b border-transparent focus:border-purple-500 ${block.checked ? 'completed-text' : ''}`;
+                
+                input.addEventListener('input', (e) => {
+                    block.text = e.target.value;
+                    saveCurrentNoteData();
+                });
+
+                contentArea.appendChild(input);
+            } else {
+                // Visningsläge - om klickbar länk finns öppnas den
+                const textSpan = document.createElement('span');
+                textSpan.className = `text-sm leading-relaxed text-slate-200 ${block.url ? 'text-cyan-400 underline cursor-pointer hover:text-cyan-300' : ''}`;
+                textSpan.textContent = block.text || '(Tom rad)';
+
+                if (block.url) {
+                    textSpan.title = 'Klicka för att öppna länk: ' + block.url;
+                    textSpan.onclick = () => {
+                        window.open(block.url, '_blank');
+                    };
+                }
+
+                contentArea.appendChild(textSpan);
+            }
+
+            // Länk-indikator ikon (om länk finns)
+            if (block.url) {
+                const linkBadge = document.createElement('a');
+                linkBadge.href = block.url;
+                linkBadge.target = '_blank';
+                linkBadge.className = 'text-xs text-cyan-400 bg-cyan-950/60 border border-cyan-800/60 px-2 py-1 rounded-md flex items-center space-x-1 hover:bg-cyan-900 transition-colors flex-shrink-0';
+                linkBadge.innerHTML = `<i class="fa-solid fa-link"></i> <span class="hidden sm:inline text-[10px]">Öppna</span>`;
+                contentArea.appendChild(linkBadge);
+            }
+
+            // Kontrollknappar (Länk, Flytta, Ta bort)
+            const controls = document.createElement('div');
+            controls.className = `flex items-center space-x-1 ${isEditMode ? 'opacity-90' : 'hidden'}`;
+
+            // Knapp för att koppla länk
+            const linkBtn = document.createElement('button');
+            linkBtn.className = `p-1.5 rounded-lg text-xs ${block.url ? 'text-cyan-400 bg-cyan-950/50' : 'text-slate-400 hover:text-cyan-400'} hover:bg-slate-800 transition-colors`;
+            linkBtn.title = 'Koppla / ändra länk';
+            linkBtn.innerHTML = `<i class="fa-solid fa-link"></i>`;
+            linkBtn.onclick = () => openLinkModal(block);
+
+            // Flyttknappar
+            const moveUpBtn = document.createElement('button');
+            moveUpBtn.className = 'p-1.5 text-slate-500 hover:text-purple-400 text-xs hover:bg-slate-800 rounded-lg';
+            moveUpBtn.innerHTML = `<i class="fa-solid fa-arrow-up"></i>`;
+            moveUpBtn.onclick = () => moveBlock(index, index - 1);
+
+            const moveDownBtn = document.createElement('button');
+            moveDownBtn.className = 'p-1.5 text-slate-500 hover:text-purple-400 text-xs hover:bg-slate-800 rounded-lg';
+            moveDownBtn.innerHTML = `<i class="fa-solid fa-arrow-down"></i>`;
+            moveDownBtn.onclick = () => moveBlock(index, index + 1);
+
+            // Ta bort knapp
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'p-1.5 text-slate-500 hover:text-rose-400 text-xs hover:bg-slate-800 rounded-lg ml-1';
+            deleteBtn.innerHTML = `<i class="fa-solid fa-xmark text-sm"></i>`;
+            deleteBtn.onclick = () => deleteBlock(index);
+
+            controls.appendChild(linkBtn);
+            controls.appendChild(moveUpBtn);
+            controls.appendChild(moveDownBtn);
+            controls.appendChild(deleteBtn);
+
+            container.appendChild(dragHandle);
+            container.appendChild(checkbox);
+            container.appendChild(contentArea);
+            container.appendChild(controls);
+
+            // Drag and Drop
+            if (isEditMode) {
+                container.addEventListener('dragstart', (e) => {
+                    draggedBlockIndex = index;
+                    container.classList.add('dragging');
+                    e.dataTransfer.effectAllowed = 'move';
+                });
+
+                container.addEventListener('dragend', () => {
+                    container.classList.remove('dragging');
+                    draggedBlockIndex = null;
+                });
+
+                container.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                });
+
+                container.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    if (draggedBlockIndex !== null && draggedBlockIndex !== index) {
+                        moveBlock(draggedBlockIndex, index);
+                    }
+                });
+            }
+
+            return container;
+        }
+
+        // VÄXLA REDIGERINGSLÄGE
+        function toggleEditMode() {
+            isEditMode = !isEditMode;
+            updateEditModeUI();
+            const note = getCurrentNote();
+            if (note) renderBlocks(note.blocks);
+        }
+
+        function updateEditModeUI() {
+            if (isEditMode) {
+                editModeIcon.className = 'fa-solid fa-pen';
+                editModeText.textContent = 'Redigeringsläge';
+                toggleEditModeBtn.className = 'px-3 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 text-white font-medium text-xs flex items-center space-x-1.5 transition-all';
+                modeBannerText.innerHTML = `<i class="fa-solid fa-info-circle mr-1 text-purple-400"></i> Redigeringsläge aktivt – alla rader visas så att du kan redigera dem.`;
+                noteTitleInput.removeAttribute('readonly');
+                addBlockBtn.classList.remove('hidden');
+            } else {
+                editModeIcon.className = 'fa-solid fa-eye';
+                editModeText.textContent = 'Visningsläge';
+                toggleEditModeBtn.className = 'px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs flex items-center space-x-1.5 transition-all';
+                modeBannerText.innerHTML = `<i class="fa-solid fa-eye mr-1 text-emerald-400"></i> Visningsläge aktivt – inaktiverade rader döljs helt. Klicka på text med länk för att öppna den.`;
+                noteTitleInput.setAttribute('readonly', 'true');
+                addBlockBtn.classList.add('hidden');
+            }
+        }
+
+        // ÖPPNA LÄNK-MODAL FÖR ETT BLOCK
+        function openLinkModal(block) {
+            activeBlockForLink = block;
+            blockUrlInput.value = block.url || '';
+            if (block.url) {
+                removeLinkBtn.classList.remove('hidden');
+            } else {
+                removeLinkBtn.classList.add('hidden');
+            }
+            linkModal.classList.remove('hidden');
+        }
+
+        // FLYTTA BLOCK
+        function moveBlock(fromIndex, toIndex) {
+            const note = getCurrentNote();
+            if (!note || toIndex < 0 || toIndex >= note.blocks.length) return;
+
+            const item = note.blocks.splice(fromIndex, 1)[0];
+            note.blocks.splice(toIndex, 0, item);
+
+            saveToStorage();
+            renderBlocks(note.blocks);
+        }
+
+        // TA BORT BLOCK
+        function deleteBlock(index) {
+            const note = getCurrentNote();
+            if (!note) return;
+
+            note.blocks.splice(index, 1);
+            saveToStorage();
+            renderBlocks(note.blocks);
+        }
+
+        // LÄGG TILL NYTT UNIVERSALBLOCK
+        function addNewBlock() {
+            const note = getCurrentNote();
+            if (!note) return;
+
+            note.blocks.push({
+                id: 'b_' + Date.now(),
+                text: '',
+                checked: false,
+                url: ''
+            });
+
+            saveToStorage();
+            renderBlocks(note.blocks);
+        }
+
+        function getCurrentNote() {
+            return notes.find(n => n.id === currentNoteId);
+        }
+
+        function saveCurrentNoteData() {
+            const note = getCurrentNote();
+            if (note) {
+                note.updatedAt = new Date().toISOString();
+                saveToStorage();
+            }
+        }
+
+        function deleteCurrentNote() {
+            if (!currentNoteId) return;
+            notes = notes.filter(n => n.id !== currentNoteId);
+            saveToStorage();
+            if (notes.length > 0) {
+                selectNote(notes[0].id);
+            } else {
+                currentNoteId = null;
+                showEmptyState(true);
+            }
+        }
+
+        // EXPORTERA SÄKERHETSKOPIA (JSON)
+        function exportBackup() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(notes, null, 2));
+            const downloadAnchor = document.createElement('a');
+            const dateStr = new Date().toISOString().slice(0, 10);
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", `anteckningar_pro_backup_${dateStr}.json`);
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+        }
+
+        // IMPORTERA SÄKERHETSKOPIA (JSON)
+        function importBackup(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const importedNotes = JSON.parse(e.target.result);
+                    if (Array.isArray(importedNotes)) {
+                        notes = importedNotes;
+                        saveToStorage();
+                        if (notes.length > 0) {
+                            selectNote(notes[0].id);
+                        } else {
+                            showEmptyState(true);
+                        }
+                        backupModal.classList.add('hidden');
+                    } else {
+                        console.error('Ogiltigt filformat för säkerhetskopia');
+                    }
+                } catch (err) {
+                    console.error('Kunde inte läsa in filen:', err);
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = ''; // Rensa input
+        }
+
+        // DELA ANTECKNING LOGIK
+        function openShareModal() {
+            const note = getCurrentNote();
+            if (!note) return;
+
+            updateShareUrl();
+            shareModal.classList.remove('hidden');
+        }
+
+        function updateShareUrl() {
+            const note = getCurrentNote();
+            if (!note) return;
+
+            const selectedPerm = document.querySelector('input[name="sharePermission"]:checked').value;
+            const shareData = {
+                title: note.title,
+                blocks: note.blocks,
+                readOnly: selectedPerm === 'read'
+            };
+
+            const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(shareData))));
+            const baseUrl = window.location.origin + window.location.pathname;
+            shareUrlInput.value = `${baseUrl}?shared=${encoded}`;
+        }
+
+        function escapeHtml(str) {
+            return String(str || '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
+        }
+
+        // EVENT LISTENERS
+        function setupEventListeners() {
+            document.getElementById('newNoteBtn').onclick = createNewNote;
+            document.getElementById('emptyNewBtn').onclick = createNewNote;
+            document.getElementById('addBlockBtn').onclick = addNewBlock;
+
+            toggleEditModeBtn.onclick = toggleEditMode;
+
+            noteTitleInput.addEventListener('input', (e) => {
+                const note = getCurrentNote();
+                if (note) {
+                    note.title = e.target.value;
+                    saveCurrentNoteData();
+                }
+            });
+
+            document.getElementById('deleteNoteBtn').onclick = deleteCurrentNote;
+
+            // Säkerhetskopia modal & Toppmeny knappar
+            document.getElementById('backupModalBtn').onclick = () => backupModal.classList.remove('hidden');
+            document.getElementById('closeBackupModal').onclick = () => backupModal.classList.add('hidden');
+            document.getElementById('exportBackupBtn').onclick = exportBackup;
+            document.getElementById('importBackupInput').addEventListener('change', importBackup);
+            
+            // Koppling för de nya knapparna i toppmenyn
+            document.getElementById('topExportBtn').onclick = exportBackup;
+            document.getElementById('topImportInput').addEventListener('change', importBackup);
+
+            // Länk-modal
+            document.getElementById('closeLinkModal').onclick = () => linkModal.classList.add('hidden');
+            document.getElementById('saveLinkBtn').onclick = () => {
+                if (activeBlockForLink) {
+                    activeBlockForLink.url = blockUrlInput.value.trim();
+                    saveCurrentNoteData();
+                    renderBlocks(getCurrentNote().blocks);
+                }
+                linkModal.classList.add('hidden');
+            };
+            removeLinkBtn.onclick = () => {
+                if (activeBlockForLink) {
+                    activeBlockForLink.url = '';
+                    saveCurrentNoteData();
+                    renderBlocks(getCurrentNote().blocks);
+                }
+                linkModal.classList.add('hidden');
+            };
+
+            // Dela-modal
+            document.getElementById('shareBtn').onclick = openShareModal;
+            document.getElementById('closeShareModal').onclick = () => shareModal.classList.add('hidden');
+            document.querySelectorAll('input[name="sharePermission"]').forEach(radio => {
+                radio.onchange = updateShareUrl;
+            });
+
+            document.getElementById('copyShareUrlBtn').onclick = () => {
+                shareUrlInput.select();
+                document.execCommand('copy');
+            };
+
+            // Sökfält
+            searchInput.addEventListener('input', (e) => {
+                renderNotesList(e.target.value);
+            });
+
+            // Mobil meny
+            const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+            const sidebar = document.getElementById('sidebar');
+            const sidebarOverlay = document.getElementById('sidebarOverlay');
+
+            mobileMenuBtn.onclick = () => {
+                sidebar.classList.remove('-translate-x-full');
+                sidebarOverlay.classList.remove('hidden');
+            };
+
+            sidebarOverlay.onclick = () => {
+                sidebar.classList.add('-translate-x-full');
+                sidebarOverlay.classList.add('hidden');
+            };
+        }
+    </script>
+</body>
+</html>
+```
