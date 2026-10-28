@@ -464,7 +464,7 @@
             background: #fff;
             padding: 16px;
             border-radius: var(--radius-md);
-            min-height: 200px;
+            min-height: 240px;
         }
 
         .empty-state {
@@ -502,7 +502,7 @@
             <div class="sidebar-header">
                 <div class="logo">
                     <i class="fa-solid fa-note-sticky"></i>
-                    <span>Anteckningar</span>
+                    <span>Anteckning</span>
                 </div>
                 <button class="btn-block-action" onclick="toggleSidebar()" title="Stäng meny">
                     <i class="fa-solid fa-xmark"></i>
@@ -598,7 +598,7 @@
             </div>
 
             <div style="text-align:center;">
-                <label style="font-size:0.85rem; color:var(--text-muted);">Spara och skicka denna QR-bild</label>
+                <label id="qrStatusLabel" style="font-size:0.85rem; color:var(--text-muted);">Skapar optimerad QR-kod...</label>
                 <div class="qr-container">
                     <div id="qrcode"></div>
                 </div>
@@ -836,23 +836,43 @@
             document.getElementById(id).classList.remove('open');
         }
 
-        // QR Share Generation (Compact JSON)
-        function openShareModal() {
+        // --- OPTIMIZED QR GENERATION & SHORTENING ---
+        async function openShareModal() {
             const n = getActiveNote();
             if (!n) return;
             document.getElementById('shareModal').classList.add('open');
-            generateQRShare();
+            await generateQRShare();
         }
 
-        function generateQRShare() {
+        async function shortenUrlIfNeeded(url) {
+            if (!url || url.length < 35) return url;
+            try {
+                const res = await fetch(`https://is.gd/create.php?format=json&url=${encodeURIComponent(url)}`);
+                const data = await res.json();
+                return data.shorturl || url;
+            } catch (e) {
+                return url;
+            }
+        }
+
+        async function generateQRShare() {
             const n = getActiveNote();
             if (!n) return;
 
+            const statusLabel = document.getElementById('qrStatusLabel');
+            statusLabel.innerText = "Optimerar länkar för QR-kod...";
+
             const perm = document.getElementById('sharePermission').value;
-            // Compact JSON to fit in QR code
+
+            // Shorten long URLs asynchronously so QR code won't break
+            const optimizedBlocks = await Promise.all(n.blocks.map(async b => {
+                const shortUrl = await shortenUrlIfNeeded(b.url);
+                return [b.text, b.checked ? 1 : 0, shortUrl || ""];
+            }));
+
             const compactPayload = {
                 t: n.title,
-                b: n.blocks.map(b => [b.text, b.checked ? 1 : 0, b.url || ""]),
+                b: optimizedBlocks,
                 r: perm === 'view' ? 1 : 0
             };
 
@@ -860,14 +880,19 @@
             const qrContainer = document.getElementById('qrcode');
             qrContainer.innerHTML = '';
 
-            new QRCode(qrContainer, {
-                text: jsonString,
-                width: 220,
-                height: 220,
-                colorDark: "#000000",
-                colorLight: "#ffffff",
-                correctLevel: QRCode.CorrectLevel.L
-            });
+            try {
+                new QRCode(qrContainer, {
+                    text: jsonString,
+                    width: 200,
+                    height: 200,
+                    colorDark: "#000000",
+                    colorLight: "#ffffff",
+                    correctLevel: QRCode.CorrectLevel.L
+                });
+                statusLabel.innerText = "Spara och skicka denna QR-bild:";
+            } catch(e) {
+                statusLabel.innerText = "Skaffade för mycket data för QR-kod, exportera som JSON istället.";
+            }
         }
 
         function downloadQRCode() {
