@@ -6,12 +6,14 @@
     <title>Anteckning</title>
     <!-- Font Awesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Google Fonts (Outfit) -->
+    <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <!-- QRCode.js (Generera QR) -->
+    <!-- QRCode.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-    <!-- jsQR (Skanna QR från Bild) -->
-    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+    <!-- jsQR (Skanna QR från bild) -->
+    <script src="https://cdn.jsdelivr.net/npm/jsQR@1.4.0/dist/jsQR.js"></script>
+    <!-- LZ-String (Kompression för att få plats med mycket data i QR) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/lz-string.min.js"></script>
     <style>
         :root {
             --bg-dark: #0f111a;
@@ -31,7 +33,7 @@
             box-sizing: border-box;
             margin: 0;
             padding: 0;
-            font-family: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            font-family: 'Outfit', sans-serif;
             -webkit-tap-highlight-color: transparent;
         }
 
@@ -55,7 +57,6 @@
             position: relative;
         }
 
-        /* Sidebar Navigation */
         aside {
             width: 300px;
             background: rgba(13, 15, 23, 0.95);
@@ -105,7 +106,6 @@
 
         .btn-new-note:hover {
             transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(0, 242, 254, 0.3);
         }
 
         .notes-list {
@@ -128,7 +128,6 @@
 
         .note-item:hover {
             background: rgba(255, 255, 255, 0.03);
-            border-color: rgba(255, 255, 255, 0.05);
         }
 
         .note-item.active {
@@ -147,7 +146,6 @@
         .note-item-delete {
             opacity: 0.7;
             color: var(--text-muted);
-            transition: opacity 0.2s, color 0.2s;
             background: none;
             border: none;
             cursor: pointer;
@@ -159,7 +157,6 @@
             color: var(--accent-pink);
         }
 
-        /* Main Workspace */
         main {
             flex: 1;
             display: flex;
@@ -285,7 +282,6 @@
             align-items: center;
             gap: 12px;
             backdrop-filter: blur(10px);
-            transition: all 0.2s ease;
         }
 
         .block-item.disabled {
@@ -401,7 +397,6 @@
             gap: 8px;
         }
 
-        /* Modals */
         .modal-overlay {
             position: fixed;
             top:0; left:0; right:0; bottom:0;
@@ -464,7 +459,7 @@
             background: #fff;
             padding: 16px;
             border-radius: var(--radius-md);
-            min-height: 240px;
+            min-height: 220px;
         }
 
         .empty-state {
@@ -483,7 +478,6 @@
                 position: absolute;
                 top: 0; left: 0; bottom: 0;
                 transform: translateX(-100%);
-                box-shadow: 10px 0 30px rgba(0,0,0,0.5);
             }
             aside.mobile-open {
                 transform: translateX(0);
@@ -497,71 +491,45 @@
 <body>
 
     <div id="app">
-        <!-- Sidebar Navigation -->
         <aside id="sidebar">
             <div class="sidebar-header">
                 <div class="logo">
                     <i class="fa-solid fa-note-sticky"></i>
-                    <span>Anteckning</span>
+                    <span>Anteckningar</span>
                 </div>
-                <button class="btn-block-action" onclick="toggleSidebar()" title="Stäng meny">
-                    <i class="fa-solid fa-xmark"></i>
-                </button>
+                <button class="btn-block-action" onclick="toggleSidebar()"><i class="fa-solid fa-xmark"></i></button>
             </div>
-            <button class="btn-new-note" onclick="createNewNote()">
-                <i class="fa-solid fa-plus"></i> Ny Anteckning
-            </button>
+            <button class="btn-new-note" onclick="createNewNote()"><i class="fa-solid fa-plus"></i> Ny Anteckning</button>
             <div class="notes-list" id="notesList"></div>
         </aside>
 
-        <!-- Main Workspace -->
         <main>
             <header>
                 <div class="header-left">
-                    <button class="btn-menu-toggle" onclick="toggleSidebar()" title="Visa meny">
-                        <i class="fa-solid fa-bars"></i>
-                    </button>
+                    <button class="btn-menu-toggle" onclick="toggleSidebar()"><i class="fa-solid fa-bars"></i></button>
                     <input type="text" id="noteTitle" class="note-title-input" placeholder="Anteckningens titel..." oninput="updateNoteTitle(this.value)">
                 </div>
 
                 <div class="toolbar">
-                    <!-- Backup Buttons -->
-                    <button class="btn-icon" onclick="exportBackup()" title="Exportera Backup (JSON)">
-                        <i class="fa-solid fa-download"></i>
-                    </button>
-                    <button class="btn-icon" onclick="document.getElementById('importFileInput').click()" title="Importera Backup (JSON)">
-                        <i class="fa-solid fa-upload"></i>
-                    </button>
+                    <button class="btn-icon" onclick="exportBackup()" title="Exportera JSON"><i class="fa-solid fa-download"></i></button>
+                    <button class="btn-icon" onclick="document.getElementById('importFileInput').click()" title="Importera JSON"><i class="fa-solid fa-upload"></i></button>
                     <input type="file" id="importFileInput" style="display:none" accept=".json" onchange="importBackup(event)">
 
-                    <!-- Import QR Image Button -->
-                    <button class="btn-icon" onclick="document.getElementById('qrFileInput').click()" title="Läs in lista från QR-bild" style="color: var(--primary-neon);">
-                        <i class="fa-solid fa-qrcode"></i> Läs QR-bild
-                    </button>
+                    <button class="btn-icon" onclick="document.getElementById('qrFileInput').click()" title="Läs QR-bild" style="color: var(--primary-neon);"><i class="fa-solid fa-qrcode"></i> Läs QR-bild</button>
                     <input type="file" id="qrFileInput" style="display:none" accept="image/*" onchange="importFromQRImage(event)">
 
-                    <!-- Mode Toggle -->
                     <div class="mode-toggle">
-                        <button class="mode-btn active" id="btnModeEdit" onclick="setMode('edit')">
-                            <i class="fa-solid fa-pen"></i> Redigera
-                        </button>
-                        <button class="mode-btn" id="btnModeView" onclick="setMode('view')">
-                            <i class="fa-solid fa-eye"></i> Visa
-                        </button>
+                        <button class="mode-btn active" id="btnModeEdit" onclick="setMode('edit')"><i class="fa-solid fa-pen"></i> Redigera</button>
+                        <button class="mode-btn" id="btnModeView" onclick="setMode('view')"><i class="fa-solid fa-eye"></i> Visa</button>
                     </div>
 
-                    <!-- Share Button -->
-                    <button class="btn-icon" onclick="openShareModal()">
-                        <i class="fa-solid fa-share-nodes"></i> Dela
-                    </button>
+                    <button class="btn-icon" onclick="openShareModal()"><i class="fa-solid fa-share-nodes"></i> Dela</button>
                 </div>
             </header>
 
             <div class="editor-area">
                 <div id="blocksContainer" class="blocks-container"></div>
-                <button class="btn-add-block" id="btnAddBlock" onclick="addBlock()">
-                    <i class="fa-solid fa-plus"></i> Lägg till nytt block
-                </button>
+                <button class="btn-add-block" id="btnAddBlock" onclick="addBlock()"><i class="fa-solid fa-plus"></i> Lägg till nytt block</button>
             </div>
         </main>
     </div>
@@ -570,7 +538,7 @@
     <div class="modal-overlay" id="linkModal">
         <div class="modal">
             <div class="modal-header">
-                <h3>Koppla länk till block</h3>
+                <h3>Koppla länk</h3>
                 <button class="modal-close" onclick="closeModal('linkModal')"><i class="fa-solid fa-xmark"></i></button>
             </div>
             <input type="url" id="linkInput" class="modal-input" placeholder="https://exempel.se">
@@ -585,57 +553,39 @@
     <div class="modal-overlay" id="shareModal">
         <div class="modal">
             <div class="modal-header">
-                <h3>Dela anteckning via QR-bild</h3>
+                <h3>Dela via QR-bild</h3>
                 <button class="modal-close" onclick="closeModal('shareModal')"><i class="fa-solid fa-xmark"></i></button>
             </div>
             
             <div style="margin-bottom:12px;">
-                <label style="font-size:0.85rem; color:var(--text-muted); display:block; margin-bottom:4px;">Mottagarens behörighet</label>
+                <label style="font-size:0.85rem; color:var(--text-muted); display:block; margin-bottom:4px;">Behörighet</label>
                 <select id="sharePermission" class="modal-input" style="margin-bottom:0;" onchange="generateQRShare()">
                     <option value="edit">Kan redigera</option>
-                    <option value="view">Endast visa (skrivskyddad)</option>
+                    <option value="view">Endast visa</option>
                 </select>
             </div>
 
             <div style="text-align:center;">
-                <label id="qrStatusLabel" style="font-size:0.85rem; color:var(--text-muted);">Skapar optimerad QR-kod...</label>
-                <div class="qr-container">
-                    <div id="qrcode"></div>
-                </div>
-                <button class="btn-icon" onclick="downloadQRCode()" style="width:100%; justify-content:center; background: var(--primary-neon); color: #000; font-weight:600;">
-                    <i class="fa-solid fa-file-arrow-down"></i> Spara QR-bild
-                </button>
+                <div class="qr-container"><div id="qrcode"></div></div>
+                <button class="btn-icon" onclick="downloadQRCode()" style="width:100%; justify-content:center; background: var(--primary-neon); color: #000; font-weight:600;"><i class="fa-solid fa-file-arrow-down"></i> Spara QR-bild</button>
             </div>
         </div>
     </div>
 
     <script>
-        let notes = [];
-        let activeNoteId = null;
+        let notes = JSON.parse(localStorage.getItem('notepad_pro_data') || '[]');
+        let activeNoteId = notes[0]?.id || null;
         let currentMode = 'edit';
         let currentEditingBlockId = null;
 
         window.addEventListener('DOMContentLoaded', () => {
-            loadFromLocalStorage();
-            if (!activeNoteId && notes.length > 0) {
-                activeNoteId = notes[0].id;
-            }
             renderNotesList();
             renderActiveNote();
         });
 
-        function toggleSidebar() {
-            document.getElementById('sidebar').classList.toggle('mobile-open');
-        }
-
-        function saveToLocalStorage() {
-            localStorage.setItem('notepad_pro_data', JSON.stringify(notes));
-        }
-
-        function loadFromLocalStorage() {
-            const data = localStorage.getItem('notepad_pro_data');
-            notes = data ? JSON.parse(data) : [];
-        }
+        const toggleSidebar = () => document.getElementById('sidebar').classList.toggle('mobile-open');
+        const save = () => localStorage.setItem('notepad_pro_data', JSON.stringify(notes));
+        const getActiveNote = () => notes.find(n => n.id === activeNoteId);
 
         function renderNotesList() {
             const listEl = document.getElementById('notesList');
@@ -645,7 +595,7 @@
                 item.className = `note-item ${note.id === activeNoteId ? 'active' : ''}`;
                 item.onclick = () => { selectNote(note.id); };
                 item.innerHTML = `
-                    <span class="note-item-title">${escapeHtml(note.title || 'Namnlös anteckning')}</span>
+                    <span class="note-item-title">${escapeHtml(note.title || 'Namnlös')}</span>
                     <button class="note-item-delete" onclick="deleteNote(event, '${note.id}')"><i class="fa-solid fa-trash"></i></button>
                 `;
                 listEl.appendChild(item);
@@ -660,14 +610,10 @@
         }
 
         function createNewNote() {
-            const newNote = {
-                id: 'n_' + Date.now(),
-                title: '',
-                blocks: [{ id: 'b_' + Date.now(), text: '', checked: false, url: '' }]
-            };
+            const newNote = { id: 'n_' + Date.now(), title: '', blocks: [{ id: 'b_' + Date.now(), text: '', checked: false, url: '' }] };
             notes.unshift(newNote);
             activeNoteId = newNote.id;
-            saveToLocalStorage();
+            save();
             renderNotesList();
             renderActiveNote();
             setMode('edit');
@@ -675,17 +621,13 @@
 
         function deleteNote(e, id) {
             e.stopPropagation();
-            if (confirm('Ta bort anteckningen?')) {
+            if (confirm('Ta bort anteckning?')) {
                 notes = notes.filter(n => n.id !== id);
-                activeNoteId = notes.length > 0 ? notes[0].id : null;
-                saveToLocalStorage();
+                activeNoteId = notes[0]?.id || null;
+                save();
                 renderNotesList();
                 renderActiveNote();
             }
-        }
-
-        function getActiveNote() {
-            return notes.find(n => n.id === activeNoteId);
         }
 
         function renderActiveNote() {
@@ -716,10 +658,10 @@
                 if (currentMode === 'edit') {
                     blockEl.innerHTML = `
                         <label class="checkbox-wrapper">
-                            <input type="checkbox" ${block.checked ? 'checked' : ''} onchange="toggleBlockCheck('${block.id}', this.checked)">
+                            <input type="checkbox" ${block.checked ? 'checked' : ''} onchange="toggleCheck('${block.id}', this.checked)">
                             <div class="custom-checkbox"><i class="fa-solid fa-check"></i></div>
                         </label>
-                        <input type="text" class="block-text-input" value="${escapeHtml(block.text)}" placeholder="Skriv text..." oninput="updateBlockText('${block.id}', this.value)">
+                        <input type="text" class="block-text-input" value="${escapeHtml(block.text)}" placeholder="Skriv text..." oninput="updateText('${block.id}', this.value)">
                         <div class="block-controls">
                             <button class="btn-block-action ${block.url ? 'active-link' : ''}" onclick="openLinkModal('${block.id}')"><i class="fa-solid fa-link"></i></button>
                             <button class="btn-block-action" onclick="moveBlock('${block.id}', -1)"><i class="fa-solid fa-arrow-up"></i></button>
@@ -730,7 +672,7 @@
                 } else {
                     const hasLink = Boolean(block.url);
                     blockEl.innerHTML = `
-                        <div class="block-view-text ${hasLink ? 'has-link' : ''}" onclick="handleBlockClick('${block.url}')">
+                        <div class="block-view-text ${hasLink ? 'has-link' : ''}" onclick="if('${block.url}') window.open(/^https?:\\/\\//i.test('${block.url}') ? '${block.url}' : 'https://${block.url}', '_blank')">
                             <span>${escapeHtml(block.text) || '<i>Tom rad</i>'}</span>
                             ${hasLink ? '<i class="fa-solid fa-arrow-up-right-from-square" style="font-size:0.8rem;"></i>' : ''}
                         </div>
@@ -749,47 +691,41 @@
 
         function updateNoteTitle(v) {
             const n = getActiveNote();
-            if (n) { n.title = v; saveToLocalStorage(); renderNotesList(); }
+            if (n) { n.title = v; save(); renderNotesList(); }
         }
 
         function addBlock() {
             const n = getActiveNote();
             if (n) {
                 n.blocks.push({ id: 'b_' + Date.now(), text: '', checked: false, url: '' });
-                saveToLocalStorage();
+                save();
                 renderActiveNote();
             }
         }
 
-        function updateBlockText(id, text) {
+        function updateText(id, text) {
             const n = getActiveNote();
-            if (n) {
-                const b = n.blocks.find(x => x.id === id);
-                if (b) { b.text = text; saveToLocalStorage(); }
-            }
+            const b = n?.blocks.find(x => x.id === id);
+            if (b) { b.text = text; save(); }
         }
 
-        function toggleBlockCheck(id, checked) {
+        function toggleCheck(id, checked) {
             const n = getActiveNote();
-            if (n) {
-                const b = n.blocks.find(x => x.id === id);
-                if (b) { b.checked = checked; saveToLocalStorage(); renderActiveNote(); }
-            }
+            const b = n?.blocks.find(x => x.id === id);
+            if (b) { b.checked = checked; save(); renderActiveNote(); }
         }
 
         function moveBlock(id, dir) {
             const n = getActiveNote();
-            if (n) {
-                const idx = n.blocks.findIndex(x => x.id === id);
-                if (idx < 0) return;
-                const newIdx = idx + dir;
-                if (newIdx >= 0 && newIdx < n.blocks.length) {
-                    const temp = n.blocks[idx];
-                    n.blocks[idx] = n.blocks[newIdx];
-                    n.blocks[newIdx] = temp;
-                    saveToLocalStorage();
-                    renderActiveNote();
-                }
+            if (!n) return;
+            const idx = n.blocks.findIndex(x => x.id === id);
+            const newIdx = idx + dir;
+            if (newIdx >= 0 && newIdx < n.blocks.length) {
+                const temp = n.blocks[idx];
+                n.blocks[idx] = n.blocks[newIdx];
+                n.blocks[newIdx] = temp;
+                save();
+                renderActiveNote();
             }
         }
 
@@ -797,33 +733,24 @@
             const n = getActiveNote();
             if (n) {
                 n.blocks = n.blocks.filter(x => x.id !== id);
-                saveToLocalStorage();
+                save();
                 renderActiveNote();
-            }
-        }
-
-        function handleBlockClick(url) {
-            if (url) {
-                let formatted = /^https?:\/\//i.test(url) ? url : 'https://' + url;
-                window.open(formatted, '_blank');
             }
         }
 
         function openLinkModal(id) {
             currentEditingBlockId = id;
             const n = getActiveNote();
-            const b = n.blocks.find(x => x.id === id);
-            document.getElementById('linkInput').value = b ? (b.url || '') : '';
+            const b = n?.blocks.find(x => x.id === id);
+            document.getElementById('linkInput').value = b?.url || '';
             document.getElementById('linkModal').classList.add('open');
         }
 
         function saveBlockLink() {
             const url = document.getElementById('linkInput').value.trim();
             const n = getActiveNote();
-            if (n && currentEditingBlockId) {
-                const b = n.blocks.find(x => x.id === currentEditingBlockId);
-                if (b) { b.url = url; saveToLocalStorage(); renderActiveNote(); }
-            }
+            const b = n?.blocks.find(x => x.id === currentEditingBlockId);
+            if (b) { b.url = url; save(); renderActiveNote(); }
             closeModal('linkModal');
         }
 
@@ -836,63 +763,37 @@
             document.getElementById(id).classList.remove('open');
         }
 
-        // --- OPTIMIZED QR GENERATION & SHORTENING ---
-        async function openShareModal() {
-            const n = getActiveNote();
-            if (!n) return;
-            document.getElementById('shareModal').classList.add('open');
-            await generateQRShare();
-        }
-
-        async function shortenUrlIfNeeded(url) {
-            if (!url || url.length < 35) return url;
-            try {
-                const res = await fetch(`https://is.gd/create.php?format=json&url=${encodeURIComponent(url)}`);
-                const data = await res.json();
-                return data.shorturl || url;
-            } catch (e) {
-                return url;
+        function openShareModal() {
+            if (getActiveNote()) {
+                document.getElementById('shareModal').classList.add('open');
+                generateQRShare();
             }
         }
 
-        async function generateQRShare() {
+        function generateQRShare() {
             const n = getActiveNote();
             if (!n) return;
 
-            const statusLabel = document.getElementById('qrStatusLabel');
-            statusLabel.innerText = "Optimerar länkar för QR-kod...";
-
             const perm = document.getElementById('sharePermission').value;
-
-            // Shorten long URLs asynchronously so QR code won't break
-            const optimizedBlocks = await Promise.all(n.blocks.map(async b => {
-                const shortUrl = await shortenUrlIfNeeded(b.url);
-                return [b.text, b.checked ? 1 : 0, shortUrl || ""];
-            }));
-
-            const compactPayload = {
+            const payload = {
                 t: n.title,
-                b: optimizedBlocks,
+                b: n.blocks.map(b => [b.text, b.checked ? 1 : 0, b.url || ""]),
                 r: perm === 'view' ? 1 : 0
             };
 
-            const jsonString = JSON.stringify(compactPayload);
+            // Compress payload into a compact string using LZString
+            const compressed = LZString.compressToEncodedURIComponent(JSON.stringify(payload));
             const qrContainer = document.getElementById('qrcode');
             qrContainer.innerHTML = '';
 
-            try {
-                new QRCode(qrContainer, {
-                    text: jsonString,
-                    width: 200,
-                    height: 200,
-                    colorDark: "#000000",
-                    colorLight: "#ffffff",
-                    correctLevel: QRCode.CorrectLevel.L
-                });
-                statusLabel.innerText = "Spara och skicka denna QR-bild:";
-            } catch(e) {
-                statusLabel.innerText = "Skaffade för mycket data för QR-kod, exportera som JSON istället.";
-            }
+            new QRCode(qrContainer, {
+                text: compressed,
+                width: 220,
+                height: 220,
+                colorDark: "#000000",
+                colorLight: "#ffffff",
+                correctLevel: QRCode.CorrectLevel.L
+            });
         }
 
         function downloadQRCode() {
@@ -907,7 +808,6 @@
             }
         }
 
-        // Import list directly from QR Image File
         function importFromQRImage(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -920,14 +820,18 @@
                     const ctx = canvas.getContext('2d');
                     canvas.width = img.width;
                     canvas.height = img.height;
-                    ctx.drawImage(img, 0, 0, img.width, img.height);
+                    ctx.drawImage(img, 0, 0);
                     
                     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
                     const code = jsQR(imageData.data, imageData.width, imageData.height);
 
                     if (code && code.data) {
                         try {
-                            const data = JSON.parse(code.data);
+                            // Decompress data using LZString (falls back to uncompressed JSON if needed)
+                            let jsonStr = LZString.decompressFromEncodedURIComponent(code.data);
+                            if (!jsonStr) jsonStr = code.data;
+                            
+                            const data = JSON.parse(jsonStr);
                             if (data.t !== undefined && Array.isArray(data.b)) {
                                 const newNote = {
                                     id: 'n_' + Date.now(),
@@ -941,7 +845,7 @@
                                 };
                                 notes.unshift(newNote);
                                 activeNoteId = newNote.id;
-                                saveToLocalStorage();
+                                save();
                                 renderNotesList();
                                 renderActiveNote();
                                 if (data.r === 1) setMode('view');
@@ -953,7 +857,7 @@
                             alert('Kunde inte läsa anteckningsdatan i QR-koden.');
                         }
                     } else {
-                        alert('Ingen QR-kod hittades i den uppladdade bilden.');
+                        alert('Ingen QR-kod hittades i bilden.');
                     }
                 };
                 img.src = e.target.result;
@@ -962,11 +866,9 @@
             event.target.value = '';
         }
 
-        // Backup Export & Import (JSON)
         function exportBackup() {
-            const str = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(notes, null, 2));
             const a = document.createElement('a');
-            a.href = str;
+            a.href = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(notes, null, 2));
             a.download = `anteckningar_backup_${new Date().toISOString().slice(0,10)}.json`;
             a.click();
         }
@@ -980,14 +882,14 @@
                     const parsed = JSON.parse(evt.target.result);
                     if (Array.isArray(parsed)) {
                         notes = parsed;
-                        activeNoteId = notes.length > 0 ? notes[0].id : null;
-                        saveToLocalStorage();
+                        activeNoteId = notes[0]?.id || null;
+                        save();
                         renderNotesList();
                         renderActiveNote();
                         alert('Backup importerad!');
                     }
                 } catch(err) {
-                    alert('Felaktig backupfil.');
+                    alert('Felaktig fil.');
                 }
             };
             reader.readAsText(file);
