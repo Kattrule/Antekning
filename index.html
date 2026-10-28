@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Anteckning</title>
+    <title>Anteckningar</title>
     <!-- Font Awesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Google Fonts -->
@@ -11,8 +11,8 @@
     <!-- QRCode.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <!-- jsQR (Skanna QR från bild) -->
-    <script src="https://cdn.jsdelivr.net/npm/jsQR@1.4.0/dist/jsQR.js"></script>
-    <!-- LZ-String (Kompression för att få plats med mycket data i QR) -->
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+    <!-- LZ-String (Kompression) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/lz-string.min.js"></script>
     <style>
         :root {
@@ -459,7 +459,7 @@
             background: #fff;
             padding: 16px;
             border-radius: var(--radius-md);
-            min-height: 220px;
+            min-height: 260px;
         }
 
         .empty-state {
@@ -495,7 +495,7 @@
             <div class="sidebar-header">
                 <div class="logo">
                     <i class="fa-solid fa-note-sticky"></i>
-                    <span>Anteckningar</span>
+                    <span>Anteckning</span>
                 </div>
                 <button class="btn-block-action" onclick="toggleSidebar()"><i class="fa-solid fa-xmark"></i></button>
             </div>
@@ -781,15 +781,14 @@
                 r: perm === 'view' ? 1 : 0
             };
 
-            // Compress payload into a compact string using LZString
             const compressed = LZString.compressToEncodedURIComponent(JSON.stringify(payload));
             const qrContainer = document.getElementById('qrcode');
             qrContainer.innerHTML = '';
 
             new QRCode(qrContainer, {
                 text: compressed,
-                width: 220,
-                height: 220,
+                width: 250,
+                height: 250,
                 colorDark: "#000000",
                 colorLight: "#ffffff",
                 correctLevel: QRCode.CorrectLevel.L
@@ -798,11 +797,19 @@
 
         function downloadQRCode() {
             const canvas = document.querySelector('#qrcode canvas');
-            const img = document.querySelector('#qrcode img');
-            const src = canvas ? canvas.toDataURL('image/png') : (img ? img.src : '');
-            if (src) {
+            if (canvas) {
+                // Skapa en högupplöst och tydlig bild för nedladdning
+                const exportCanvas = document.createElement('canvas');
+                const padding = 20;
+                exportCanvas.width = canvas.width + padding * 2;
+                exportCanvas.height = canvas.height + padding * 2;
+                const ctx = exportCanvas.getContext('2d');
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
+                ctx.drawImage(canvas, padding, padding);
+
                 const a = document.createElement('a');
-                a.href = src;
+                a.href = exportCanvas.toDataURL('image/png');
                 a.download = `anteckning_qr_${Date.now()}.png`;
                 a.click();
             }
@@ -821,13 +828,14 @@
                     canvas.width = img.width;
                     canvas.height = img.height;
                     ctx.drawImage(img, 0, 0);
-                    
+
                     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                    const code = jsQR(imageData.data, imageData.width, imageData.height);
+                    const code = jsQR(imageData.data, imageData.width, imageData.height, {
+                        inversionAttempts: "dontInvert"
+                    });
 
                     if (code && code.data) {
                         try {
-                            // Decompress data using LZString (falls back to uncompressed JSON if needed)
                             let jsonStr = LZString.decompressFromEncodedURIComponent(code.data);
                             if (!jsonStr) jsonStr = code.data;
                             
@@ -854,10 +862,10 @@
                                 alert('Bilden innehöll inte en giltig antecknings-QR.');
                             }
                         } catch(err) {
-                            alert('Kunde inte läsa anteckningsdatan i QR-koden.');
+                            alert('Kunde inte tolka datan i QR-koden.');
                         }
                     } else {
-                        alert('Ingen QR-kod hittades i bilden.');
+                        alert('Kunde inte hitta någon QR-kod i bilden. Prova att ta en tydligare bild eller ladda ner QR-bilden igen via appen.');
                     }
                 };
                 img.src = e.target.result;
