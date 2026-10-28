@@ -495,7 +495,7 @@
             <div class="sidebar-header">
                 <div class="logo">
                     <i class="fa-solid fa-note-sticky"></i>
-                    <span>Anteckning</span>
+                    <span>Anteckningar</span>
                 </div>
                 <button class="btn-block-action" onclick="toggleSidebar()"><i class="fa-solid fa-xmark"></i></button>
             </div>
@@ -566,6 +566,7 @@
             </div>
 
             <div style="text-align:center;">
+                <div id="qrStatusLabel" style="font-size:0.85rem; color:var(--text-muted); margin-bottom: 8px;">Förkortar länkar och skapar QR-kod...</div>
                 <div class="qr-container"><div id="qrcode"></div></div>
                 <button class="btn-icon" onclick="downloadQRCode()" style="width:100%; justify-content:center; background: var(--primary-neon); color: #000; font-weight:600;"><i class="fa-solid fa-file-arrow-down"></i> Spara QR-bild</button>
             </div>
@@ -763,21 +764,38 @@
             document.getElementById(id).classList.remove('open');
         }
 
-        function openShareModal() {
+        async function openShareModal() {
             if (getActiveNote()) {
                 document.getElementById('shareModal').classList.add('open');
-                generateQRShare();
+                await generateQRShare();
             }
         }
 
-        function generateQRShare() {
+        async function generateQRShare() {
             const n = getActiveNote();
             if (!n) return;
 
+            const statusLabel = document.getElementById('qrStatusLabel');
+            statusLabel.innerText = "Förkortar långa länkar för att QR-koden ska bli läsbar...";
+
             const perm = document.getElementById('sharePermission').value;
+
+            // Automatically shorten all long URLs so the QR code doesn't become an unreadable noise grid
+            const optimizedBlocks = await Promise.all(n.blocks.map(async b => {
+                let url = b.url || "";
+                if (url.length > 30 && !url.includes('is.gd')) {
+                    try {
+                        const res = await fetch(`https://is.gd/create.php?format=json&url=${encodeURIComponent(url)}`);
+                        const data = await res.json();
+                        if (data.shorturl) url = data.shorturl;
+                    } catch(e) {}
+                }
+                return [b.text, b.checked ? 1 : 0, url];
+            }));
+
             const payload = {
                 t: n.title,
-                b: n.blocks.map(b => [b.text, b.checked ? 1 : 0, b.url || ""]),
+                b: optimizedBlocks,
                 r: perm === 'view' ? 1 : 0
             };
 
@@ -787,18 +805,19 @@
 
             new QRCode(qrContainer, {
                 text: compressed,
-                width: 250,
-                height: 250,
+                width: 240,
+                height: 240,
                 colorDark: "#000000",
                 colorLight: "#ffffff",
-                correctLevel: QRCode.CorrectLevel.L
+                correctLevel: QRCode.CorrectLevel.M
             });
+
+            statusLabel.innerText = "Spara och skicka denna QR-bild:";
         }
 
         function downloadQRCode() {
             const canvas = document.querySelector('#qrcode canvas');
             if (canvas) {
-                // Skapa en högupplöst och tydlig bild för nedladdning
                 const exportCanvas = document.createElement('canvas');
                 const padding = 20;
                 exportCanvas.width = canvas.width + padding * 2;
@@ -865,7 +884,7 @@
                             alert('Kunde inte tolka datan i QR-koden.');
                         }
                     } else {
-                        alert('Kunde inte hitta någon QR-kod i bilden. Prova att ta en tydligare bild eller ladda ner QR-bilden igen via appen.');
+                        alert('Kunde inte hitta någon QR-kod i bilden. Prova att ladda ner en ny QR-bild via appen.');
                     }
                 };
                 img.src = e.target.result;
